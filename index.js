@@ -5,6 +5,11 @@ const app = express();
 var cors = require('cors');
 app.use(cors());
 
+// Add a root path handler
+app.get('/', (req, res) => {
+  res.send('YouTube to MP4 API is running');
+});
+
 app.get('/download', async (req, res) => {
   try {
     const url = req.query.url;
@@ -16,10 +21,13 @@ app.get('/download', async (req, res) => {
     };
     return res.send(data);
   } catch (error) {
-    return res.status(500);
+    console.error('Error:', error);
+    return res.status(500).send({ error: error.message });
   }
 });
 
-app.listen(4000, () => {
-  console.log(`Server is running on PORT: 4000`);
+// Use the PORT environment variable that Heroku provides
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Server is running on PORT: ${PORT}`);
 });
