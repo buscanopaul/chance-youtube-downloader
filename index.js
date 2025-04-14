@@ -2,7 +2,6 @@ const express = require('express');
 const ytdl = require('@distube/ytdl-core');
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 
 const app = express();
 app.use(require('cors')());
@@ -22,13 +21,6 @@ try {
   console.error('Error loading cookies:', error.message);
 }
 
-// Create a custom https agent with longer timeout
-const customAgent = new https.Agent({
-  keepAlive: true,
-  timeout: 30000,
-  maxSockets: 1, // Limit concurrent connections
-});
-
 app.get('/download', async (req, res) => {
   const videoId = req.query.videoId;
   if (!videoId) {
@@ -40,18 +32,10 @@ app.get('/download', async (req, res) => {
     const delay = Math.floor(Math.random() * 1500) + 500;
     await new Promise((resolve) => setTimeout(resolve, delay));
 
-    // Convert cookies to the format expected by ytdl
-    const cookieJar = cookiesArray.map((cookie) => {
-      return {
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain || '.youtube.com',
-        path: cookie.path || '/',
-        expires: cookie.expirationDate
-          ? new Date(cookie.expirationDate * 1000)
-          : undefined,
-      };
-    });
+    // Create a ytdl-compatible cookie jar
+    const cookieString = cookiesArray
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join('; ');
 
     const options = {
       requestOptions: {
@@ -63,25 +47,10 @@ app.get('/download', async (req, res) => {
             'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
           Referer: 'https://www.youtube.com/',
           Origin: 'https://www.youtube.com',
-          'Sec-Ch-Ua':
-            '"Chromium";v="122", "Google Chrome";v="122", "Not:A-Brand";v="99"',
-          'Sec-Ch-Ua-Mobile': '?0',
-          'Sec-Ch-Ua-Platform': '"Windows"',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'same-origin',
+          Cookie: cookieString,
         },
-        agent: customAgent,
       },
     };
-
-    // Properly create a cookie string and add to headers
-    if (cookieJar.length > 0) {
-      const cookieString = cookieJar
-        .map((c) => `${c.name}=${c.value}`)
-        .join('; ');
-      options.requestOptions.headers.Cookie = cookieString;
-    }
 
     console.log(`Attempting to fetch info for video ${videoId}...`);
     const metaInfo = await ytdl.getInfo(
