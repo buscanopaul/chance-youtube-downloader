@@ -3,6 +3,9 @@ const youtubeDl = require('youtube-dl-exec');
 const fs = require('fs');
 const path = require('path');
 
+const cache = new Map();
+const CACHE_TTL = 3600000;
+
 const app = express();
 app.use(require('cors')());
 
@@ -41,6 +44,14 @@ app.get('/download', async (req, res) => {
       return res.status(400).send({ error: 'URL is required' });
     }
 
+    const cacheKey = url;
+    if (cache.has(cacheKey)) {
+      const cachedData = cache.get(cacheKey);
+      if (Date.now() - cachedData.timestamp < CACHE_TTL) {
+        return res.send(cachedData.data);
+      }
+    }
+
     // Check if cookies file exists
     if (!fs.existsSync(cookiesPath)) {
       return res.status(400).send({
@@ -56,6 +67,8 @@ app.get('/download', async (req, res) => {
       noCallHome: true,
       preferFreeFormats: true,
       youtubeSkipDashManifest: true,
+      noCheckCertificates: true,
+      skipDownload: true,
       cookies: cookiesPath, // Using the Netscape formatted cookies file
     };
 
@@ -71,6 +84,11 @@ app.get('/download', async (req, res) => {
       info: output.formats,
       status: 'success',
     };
+
+    cache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: data,
+    });
 
     return res.send(data);
   } catch (error) {
