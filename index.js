@@ -1,5 +1,7 @@
 const express = require('express');
 const ytdl = require('@distube/ytdl-core');
+const fs = require('fs');
+const agent = ytdl.createAgent(JSON.parse(fs.readFileSync('cookies.json')));
 
 const app = express();
 var cors = require('cors');
@@ -9,8 +11,8 @@ app.use(cors());
 app.get('/download', async (req, res) => {
   try {
     const url = req.query.url;
-    const videoId = await ytdl.getURLVideoID(url);
-    const metaInfo = await ytdl.getInfo(url);
+    const videoId = await ytdl.getURLVideoID(url, { agent });
+    const metaInfo = await ytdl.getInfo(url, { agent });
     let data = {
       url: 'https://www.youtube.com/embed/' + videoId,
       info: metaInfo.formats,
