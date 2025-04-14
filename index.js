@@ -1,27 +1,88 @@
 const express = require('express');
-const ytdl = require('@distube/ytdl-core');
+const youtubeDl = require('youtube-dl-exec');
 const fs = require('fs');
-const agent = ytdl.createAgent(JSON.parse(fs.readFileSync('cookies.json')));
+const path = require('path');
 
 const app = express();
-var cors = require('cors');
+app.use(require('cors')());
 
-app.use(cors());
+// Path to your Netscape formatted cookies file
+const cookiesPath = path.join(__dirname, 'cookies.txt');
+
+app.get('/', (req, res) => {
+  res.send('YouTube to MP4 API is running');
+});
+
+// Endpoint to check if cookies are available
+app.get('/cookie-status', (req, res) => {
+  if (fs.existsSync(cookiesPath)) {
+    const stats = fs.statSync(cookiesPath);
+    const fileSize = stats.size;
+    const lastModified = stats.mtime;
+
+    res.json({
+      status: 'available',
+      fileSize: fileSize + ' bytes',
+      lastModified: lastModified,
+      format: 'Netscape',
+    });
+  } else {
+    res.json({
+      status: 'unavailable',
+      message: 'No cookies file found',
+    });
+  }
+});
 
 app.get('/download', async (req, res) => {
   try {
     const url = req.query.url;
-    const videoId = await ytdl.getURLVideoID(url, { agent });
-    const metaInfo = await ytdl.getInfo(url, { agent });
+    if (!url) {
+      return res.status(400).send({ error: 'URL is required' });
+    }
+
+    // Check if cookies file exists
+    if (!fs.existsSync(cookiesPath)) {
+      return res.status(400).send({
+        error: 'Cookies file not found',
+        tip: 'Please convert your cookies to Netscape format and place them in cookies.txt',
+      });
+    }
+
+    // Options for youtube-dl with cookies
+    const options = {
+      dumpSingleJson: true,
+      noWarnings: true,
+      noCallHome: true,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true,
+      cookies: cookiesPath, // Using the Netscape formatted cookies file
+    };
+
+    // Get video info using youtube-dl with cookies
+    const output = await youtubeDl(url, options);
+
+    const videoId = url.includes('v=')
+      ? url.split('v=')[1].split('&')[0]
+      : output.id;
+
     let data = {
       url: 'https://www.youtube.com/embed/' + videoId,
-      info: metaInfo.formats,
+      info: output.formats,
+      status: 'success',
     };
+
     return res.send(data);
   } catch (error) {
-    return res.status(500);
+    console.error('Error:', error);
+    return res.status(500).send({
+      error: error.message,
+      tip: 'Authentication required. Ensure cookies are in Netscape format.',
+    });
   }
 });
-app.listen(4000, () => {
-  console.log(`Server is running on PORT: 4000`);
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Server is running on PORT: ${PORT}`);
 });
