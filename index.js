@@ -89,7 +89,13 @@ app.get('/download', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 4001;
-app.listen(PORT, () => {
-  console.log(`Server is running on PORT: ${PORT}`);
-});
+// For local development
+if (require.main === module) {
+  const PORT = process.env.PORT || 4001;
+  app.listen(PORT, () => {
+    console.log(`Server is running on PORT: ${PORT}`);
+  });
+}
+
+// Export for Vercel
+module.exports = app;
