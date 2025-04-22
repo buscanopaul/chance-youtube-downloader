@@ -9,14 +9,25 @@ app.use(require('cors')());
 // Load cookies properly
 let cookiesArray = [];
 try {
-  const cookiesPath = path.join(__dirname, 'cookies.json');
-  const cookiesData = fs.readFileSync(cookiesPath, 'utf8');
-  cookiesArray = JSON.parse(cookiesData);
-  console.log(
-    'Cookies loaded successfully:',
-    cookiesArray.length,
-    'cookies found'
-  );
+  if (process.env.YOUTUBE_COOKIES) {
+    // In production (Vercel)
+    cookiesArray = JSON.parse(process.env.YOUTUBE_COOKIES);
+    console.log(
+      'Cookies loaded from environment variable:',
+      cookiesArray.length,
+      'cookies found'
+    );
+  } else {
+    // In development (local)
+    const cookiesPath = path.join(__dirname, 'cookies.json');
+    const cookiesData = fs.readFileSync(cookiesPath, 'utf8');
+    cookiesArray = JSON.parse(cookiesData);
+    console.log(
+      'Cookies loaded from file:',
+      cookiesArray.length,
+      'cookies found'
+    );
+  }
 } catch (error) {
   console.error('Error loading cookies:', error.message);
 }
